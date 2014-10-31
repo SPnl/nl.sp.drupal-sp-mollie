@@ -1,0 +1,60 @@
+<?php
+
+/**
+ * Implements hook_schema().
+ */
+function sp_mollie_schema() {
+  $schema['sp_mollie_donation'] = array(
+    'description' => 'Mollie donation',
+    'fields' => array(
+      'did' => array(
+        'description' => 'Primary key',
+        'type' => 'serial',
+        'size' => 'big',
+        'not null' => TRUE,
+      ),
+      'payment_id' => array(
+        'description' => 'Mollie payment id.',
+        'type' => 'varchar',
+        'length' => '255',
+      ),
+      'date' => array(
+        'description' => 'Donation date.',
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+      'amount' => array(
+        'description' => 'The donation amount.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'status' => array(
+        'description' => 'Mollie payment status.',
+        'type' => 'varchar',
+        'length' => '255',
+      ),
+    ),
+    'primary key' => array(
+      'did',
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install()
+ */
+function sp_mollie_install() {
+  // Set default variable values.
+  variable_set('mollie_api_key', 'test_61lRKc1ZV8CHecChTTrG94O5AimOz5');
+}
+
+/**
+ * Implements hook_uninstall()
+ */
+function sp_mollie_uninstall() {
+  // Remove any variables we created.
+  variable_del('mollie_api_key');
+}

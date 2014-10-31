@@ -1,0 +1,278 @@
+<?php
+
+/*
+ * Module adds Mollie payment block.
+ */
+
+
+/**
+ * Implements hook_menu().
+ */
+function sp_mollie_menu() {
+  $items['donatie/%'] = array(
+    'page callback' => 'sp_mollie_payment_landing_page',
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+  );
+  $items['admin/config/sp_mollie'] = array(
+    'title' => 'Mollie',
+    'description' => 'Mollie instellingen.',
+    'position' => 'right',
+    'weight' => -20,
+    'page callback' => 'system_admin_menu_block_page',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer access control'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/sp_mollie/settings'] = array(
+    'title' => 'Mollie API key',
+    'description' => 'Stel de Mollie API key in.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sp_mollie_settings_form'),
+    'file' => 'sp_mollie_settings.form.inc',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer access control'),
+  );
+  return $items;
+}
+
+function sp_mollie_payment_landing_page($donation_id) {
+  // Get donation.
+  $donation = sp_mollie_get_donation($donation_id);
+  // Get donation payment id.
+  $payment_id = $donation->payment_id;
+  if ($payment_id !== FALSE) {
+    // Connect to mollie service.
+    $mollie = sp_mollie_initialize();
+    if ($mollie !== FALSE) {
+      $payment  = $mollie->payments->get($payment_id);
+      // Store donation status.
+      $donation->status = $payment->status;
+      entity_save('sp_mollie_donation', $donation);
+      // Create feedback.
+      if ($payment->isPaid() == TRUE) {
+        $content = '<p>Uw betaling is ontvangen.</p><p>Mede door uw steun kan het Comit&eacute; Asbestslachtoffers weer nieuwe juridische procedures van asbestslachtoffers financieel ondersteunen.</p>';
+      }
+      else if ($payment->isOpen() == FALSE) {
+        $content = '<p>Helaas, de betaling van uw donatie is geannuleerd.</p>';
+      }
+      else {
+        $content = '<p>De betaling van uw donatie is op dit moment nog niet afgerond.</p>';
+      }
+    }
+    else {
+      $content = '<p>Er is helaas een fout opgetreden.</p>';
+    }
+  }
+  else {
+    $content = '<p>Helaas, er is iets misgegaan met het ophalen van uw donatiegegevens.</p>';
+  }
+  //$content .= '<pre>' . print_r($payment, TRUE) . '</pre>';
+  return $content;
+}
+
+/**
+ * Implements hook_entity_info().
+ */
+function sp_mollie_entity_info() {
+  $info = array();
+  $info['sp_mollie_donation'] = array(
+    'label' => 'Mollie donation',
+    'entity class' => 'Entity',
+    'controller class' => 'EntityAPIController',
+    'base table' => 'sp_mollie_donation',
+    'entity keys' => array(
+      'id' => 'did',
+    ),
+    'fieldable' => FALSE,
+  );
+  return $info;
+}
+
+/**
+ * Implements hook_entity_property_info_alter().
+ */
+function sp_mollie_entity_property_info_alter(&$info) {
+  $properties = &$info['sp_mollie_donation']['properties'];
+
+  foreach (array_keys($properties) as $key) {
+    if ($key == 'did') {
+      continue;
+    }
+    $properties[$key] += array(
+      'setter callback' => 'entity_property_verbatim_set',
+    );
+  }
+}
+
+/**
+* Implements hook_block_info().
+*/
+function sp_mollie_block_info() {
+  $blocks = array();
+  $blocks['sp_mollie'] = array(
+    'info' => 'SP Mollie',
+  );
+  return $blocks;
+}
+
+/**
+* Implements hook_block_view().
+*/
+function sp_mollie_block_view($delta = '') {
+  $block = array();
+  switch ($delta) {
+    case 'sp_mollie':
+      $block['subject'] = 'online doneren';
+      $block['content'] = drupal_get_form('sp_mollie_payment_form');
+      break;
+  }
+  return $block;
+}
+
+function sp_mollie_payment_form($form, &$form_state) {
+  //dpm($form_state['values']);
+  //dpm($form_state['sp_mollie_form_page']);
+  if (empty($form_state['sp_mollie_form_page'])) {
+    // Donation
+    $prefix = '<p>Het werk van het Comit&eacute; Asbestslachtoffers wordt volledig gefinancierd met giften.</p><p>Wilt u hieraan bijdragen?</p>';
+    $form['page_1_submit'] = array(
+      '#type' => 'button',
+      '#value' => 'Doe een donatie',
+      '#ajax' => array(
+        'callback' => 'sp_mollie_payment_form_callback',
+        'wrapper' => 'sp-mollie-payment-form',
+        'method' => 'replace',
+        'effect' => 'fade',
+      ),
+      '#prefix' => $prefix,
+    );
+    // Go to second page.
+    $form_state['sp_mollie_form_page'] = 2;
+  }
+  elseif ($form_state['sp_mollie_form_page'] === 2) {
+    $amounts = array(
+      '5.00' => '5,00 €',
+      '10.00' => '10,00 €',
+      '25.00' => '25,00 €',
+      '50.00' => '50,00 €',
+    );
+    $form['amount'] = array(
+      '#type' => 'radios',
+      '#title' => 'Kies een bedrag',
+      '#options' => $amounts,
+      '#required' => TRUE,
+    );
+    $form['page_2_submit'] = array(
+      '#type' => 'button',
+      '#value' => 'Ga verder',
+      '#ajax' => array(
+        'callback' => 'sp_mollie_payment_form_callback',
+        'wrapper' => 'sp-mollie-payment-form--2',
+        'method' => 'replace',
+        'effect' => 'fade',
+      ),
+    );
+    // Go to third page.
+    $form_state['sp_mollie_form_page'] = 3;
+  }
+  elseif ($form_state['sp_mollie_form_page'] === 3) {
+    // Store form data.
+    $form_state['sp_mollie_amount'] = $form_state['values']['amount'];
+    // Initialize mollie.
+    $mollie = sp_mollie_initialize();
+    if ($mollie !== FALSE) {
+      // Get issuers.
+      $issuers = $mollie->issuers->all();
+      foreach ($issuers as $issuer) {
+        if ($issuer->method == Mollie_API_Object_Method::IDEAL) {
+          $options[$issuer->id] = $issuer->name;
+        }
+      }
+      $form['issuer'] = array(
+        '#type' => 'radios',
+        '#title' => 'Kies uw bank',
+        '#options' => $options,
+        '#required' => TRUE,
+      );
+      $form['page_3_submit'] = array(
+        '#type' => 'submit',
+        '#value' => 'Ga naar uw bank',
+      );
+    }
+    else {
+      $form['error'] = array(
+        '#markup' => '<p>Door een storing is het tijdelijk niet mogelijk om donaties te doen.</p>',
+      );
+    }
+  }
+  return $form;
+}
+
+function sp_mollie_payment_form_submit($form, &$form_state) {
+  global $base_url;
+  // Initialize mollie.
+  $mollie = sp_mollie_initialize();
+  if ($mollie !== FALSE) {
+    try {
+      $donation = sp_mollie_create_donation();
+      $payment = $mollie->payments->create(array(
+        "amount"      => $form_state['sp_mollie_amount'],
+        "description" => "Donatie",
+        "redirectUrl" => $base_url . '/donatie/' . $donation->did,
+        "method" => Mollie_API_Object_Method::IDEAL,
+        "issuer" => $form_state['values']['issuer'], // e.g. "ideal_INGBNL2A"
+        "metadata" => array(
+          "donation_id" => $donation->did,
+        ),
+      ));
+    }
+    catch (exception $e) {
+      drupal_set_message('Het was helaas niet mogelijk om een verbinding te maken met de betaaldienst. Probeert u het op een later moment nog eens.', 'error');
+      return;
+    }
+    // To do: store payment id with order id, to retreive it on the landing page.
+    $donation->payment_id = $payment->id;
+    $donation->amount = $form_state['sp_mollie_amount'];
+    $result = entity_save('sp_mollie_donation', $donation);
+    drupal_goto($payment->links->paymentUrl, array(), 307);
+  }
+  else {
+    form_set_error('issuer', 'Er is een tijdelijke storing.');
+  }
+}
+
+function sp_mollie_payment_form_callback($form, &$form_state) {
+  $form_state['rebuild'] = TRUE;
+  return $form;
+}
+
+function sp_mollie_initialize() {
+  try {
+  module_load_include('php', 'sp_mollie', '/includes/Mollie/API/Autoloader');
+  $mollie = new Mollie_API_Client;
+  $mollie->setApiKey(variable_get('sp_mollie_api_key', "test_61lRKc1ZV8CHecChTTrG94O5AimOz5"));
+  }
+  catch (exception $e) {
+    watchdog('sp_mollie', 'Het was helaas niet mogelijk om een verbinding te maken met Mollie: ' . $e->getMessage());
+    return FALSE;
+  }
+  return $mollie;
+}
+
+function sp_mollie_get_donation($donation_id) {
+  $donation = entity_load_single('sp_mollie_donation', $donation_id);
+  return $donation;
+}
+
+function sp_mollie_create_donation() {
+  // Create new donation.
+  $donation = entity_create('sp_mollie_donation', array('date' => time()));
+  $result = entity_save('sp_mollie_donation', $donation);
+  if ($result) {
+    return $donation;
+  }
+  return FALSE;
+}
