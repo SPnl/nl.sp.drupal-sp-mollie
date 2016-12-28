@@ -53,7 +53,7 @@ function sp_mollie_payment_landing_page($donation_id) {
       entity_save('sp_mollie_donation', $donation);
       // Create feedback.
       if ($payment->isPaid() == TRUE) {
-        $content = '<p>Uw betaling is ontvangen.</p><p>Mede door uw steun kan het Comit&eacute; Asbestslachtoffers weer nieuwe juridische procedures van asbestslachtoffers financieel ondersteunen.</p>';
+        $content = '<p>Dank, uw donatie is ontvangen.</p>';
       }
       else if ($payment->isOpen() == FALSE) {
         $content = '<p>Helaas, de betaling van uw donatie is geannuleerd.</p>';
@@ -137,17 +137,15 @@ function sp_mollie_payment_form($form, &$form_state) {
   //dpm($form_state['sp_mollie_form_page']);
   if (empty($form_state['sp_mollie_form_page'])) {
     // Donation
-    $prefix = '<p>Het werk van het Comit&eacute; Asbestslachtoffers wordt volledig gefinancierd met giften.</p><p>Wilt u hieraan bijdragen?</p>';
     $form['page_1_submit'] = array(
       '#type' => 'button',
-      '#value' => 'Doe een donatie',
+      '#value' => 'Doneer',
       '#ajax' => array(
         'callback' => 'sp_mollie_payment_form_callback',
         'wrapper' => 'sp-mollie-payment-form',
         'method' => 'replace',
         'effect' => 'fade',
       ),
-      '#prefix' => $prefix,
     );
     // Go to second page.
     $form_state['sp_mollie_form_page'] = 2;
