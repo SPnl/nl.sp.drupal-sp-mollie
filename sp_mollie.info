@@ -2,3 +2,10 @@ name = SP Mollie Micropayment
 description = Adds a block with a Mollie micropayment form.
 core = 7.x
 dependencies[] = entity
+
+
+; Information added by drush on 2017-01-06
+version = "bc37f587838fe45557f1177fa10adc0537d9e3cd"
+project = "sp_mollie"
+datestamp = "1483693931"
+

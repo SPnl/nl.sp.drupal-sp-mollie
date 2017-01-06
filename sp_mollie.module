@@ -26,11 +26,21 @@ function sp_mollie_menu() {
     'file path' => drupal_get_path('module', 'system'),
   );
 
-  $items['admin/config/sp_mollie/settings'] = array(
+  $items['admin/config/sp_mollie/api-key'] = array(
     'title' => 'Mollie API key',
     'description' => 'Stel de Mollie API key in.',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('sp_mollie_settings_form'),
+    'page arguments' => array('sp_mollie_api_settings_form'),
+    'file' => 'sp_mollie_settings.form.inc',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer access control'),
+  );
+
+  $items['admin/config/sp_mollie/landing-page'] = array(
+    'title' => 'Teksten landingspagina',
+    'description' => 'Stel de feedback teksten voor de landingspagina in.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sp_mollie_landing_page_settings_form'),
     'file' => 'sp_mollie_settings.form.inc',
     'access callback' => 'user_access',
     'access arguments' => array('administer access control'),
@@ -53,23 +63,22 @@ function sp_mollie_payment_landing_page($donation_id) {
       entity_save('sp_mollie_donation', $donation);
       // Create feedback.
       if ($payment->isPaid() == TRUE) {
-        $content = '<p>Dank, uw donatie is ontvangen.</p>';
+        $content = variable_get('sp_mollie_feedback_is_paid',  '<p>Dank, uw donatie is ontvangen.</p>');
       }
       else if ($payment->isOpen() == FALSE) {
-        $content = '<p>Helaas, de betaling van uw donatie is geannuleerd.</p>';
+        $content = variable_get('sp_mollie_feedback_is_cancelled',  '<p>Helaas, de betaling van uw donatie is geannuleerd.</p>');
       }
       else {
-        $content = '<p>De betaling van uw donatie is op dit moment nog niet afgerond.</p>';
+        $content = variable_get('sp_mollie_feedback_is_open',  '<p>De betaling van uw donatie is op dit moment nog niet afgerond.</p>');
       }
     }
     else {
-      $content = '<p>Er is helaas een fout opgetreden.</p>';
+      $content = variable_get('sp_mollie_feedback_error',  '<p>Helaas, er is iets misgegaan met het ophalen van uw donatiegegevens.</p>');
     }
   }
   else {
-    $content = '<p>Helaas, er is iets misgegaan met het ophalen van uw donatiegegevens.</p>';
+    $content = variable_get('sp_mollie_feedback_no_id',  '<p>Helaas, er is iets misgegaan met het ophalen van uw donatiegegevens.</p>');
   }
-  //$content .= '<pre>' . print_r($payment, TRUE) . '</pre>';
   return $content;
 }
 

@@ -14,9 +14,9 @@
  * @param mixed $form_state
  *   Drupal form state object.
  */
-function sp_mollie_settings_form($form, &$form_state) {
+function sp_mollie_api_settings_form($form, &$form_state) {
   // API key field.
-  $form['api_key'] = array(
+  $form['sp_mollie_api_key'] = array(
     '#type' => 'textfield',
     '#title' => 'Mollie API key',
     '#required' => TRUE,
@@ -25,32 +25,39 @@ function sp_mollie_settings_form($form, &$form_state) {
     '#maxlength' => 50,
   );
 
-  // Submit button.
-  $form['submit'] = array(
-    '#type' => 'submit',
-    '#value' => 'submit',
+  return system_settings_form($form);
+}
+
+function sp_mollie_landing_page_settings_form($form, &$form_state) {
+  $form['sp_mollie_feedback_is_paid'] = array(
+    '#type' => 'textarea',
+    '#title' => 'Status: is betaald',
+    '#default_value' => variable_get('sp_mollie_feedback_is_paid',  '<p>Dank, uw donatie is ontvangen.</p>'),
   );
-  return $form;
-}
 
+  $form['sp_mollie_feedback_is_open'] = array(
+    '#type' => 'textarea',
+    '#title' => 'Status: onafgerond',
+    '#default_value' => variable_get('sp_mollie_feedback_is_open',  '<p>De betaling van uw donatie is op dit moment nog niet afgerond.</p>'),
+  );
 
-/**
- * Implements hook_validate().
- */
-function sp_mollie_settings_form_validate($form, &$form_state) {
-  $values = $form_state['values'];
-  if (empty($values['api_key'])) {
-    form_set_error('api_key', 'Vul de Mollie API key in');
-  }
-}
+  $form['sp_mollie_feedback_is_cancelled'] = array(
+    '#type' => 'textarea',
+    '#title' => 'Status: geannuleerd',
+    '#default_value' => variable_get('sp_mollie_feedback_is_cancelled',  '<p>Helaas, de betaling van uw donatie is geannuleerd.</p>'),
+  );
 
-/**
- * Implements hook_submit().
- */
-function sp_mollie_settings_form_submit($form, &$form_state) {
-  $values = $form_state['values'];
-  if (!empty($values['api_key'])) {
-    variable_set('sp_mollie_api_key', $values['api_key']);
-    drupal_set_message('De nieuwe mollie api key is ingesteld.');
-  }
+  $form['sp_mollie_feedback_error'] = array(
+    '#type' => 'textarea',
+    '#title' => 'Status: fout',
+    '#default_value' => variable_get('sp_mollie_feedback_error',  '<p>Helaas, er is een fout opgetreden.</p>'),
+  );
+
+  $form['sp_mollie_feedback_no_id'] = array(
+    '#type' => 'textarea',
+    '#title' => 'Status: geen betalings id gevonden',
+    '#default_value' => variable_get('sp_mollie_feedback_error',  '<p>Helaas, er is iets misgegaan met het ophalen van uw donatiegegevens.</p>'),
+  );
+
+  return system_settings_form($form);
 }
