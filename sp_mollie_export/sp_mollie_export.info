@@ -1,0 +1,9 @@
+name = SP Mollie export
+description = Exports donation contact data to CiviCRM.
+core = 7.x
+dependencies[] = sp_mollie
+dependencies[] = entity
+dependencies[] = spciviapi
+dependencies[] = spcivipush
+
+project = "sp_mollie"

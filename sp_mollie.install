@@ -29,6 +29,21 @@ function sp_mollie_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
+      'name' => array(
+        'description' => 'Contact name.',
+        'type' => 'varchar',
+        'length' => '255',
+      ),
+      'email' => array(
+        'description' => 'Contact email address.',
+        'type' => 'varchar',
+        'length' => '255',
+      ),
+      'phone' => array(
+        'description' => 'Contact phone number.',
+        'type' => 'varchar',
+        'length' => '255',
+      ),
       'status' => array(
         'description' => 'Mollie payment status.',
         'type' => 'varchar',
@@ -57,4 +72,30 @@ function sp_mollie_install() {
 function sp_mollie_uninstall() {
   // Remove any variables we created.
   variable_del('mollie_api_key');
+}
+
+/**
+ * Add contact info fields to mollie table.
+ */
+function sp_mollie_update_7001() {
+  $spec = array(
+    'description' => 'Contact name.',
+    'type' => 'varchar',
+    'length' => '255',
+  );
+  db_add_field( 'sp_mollie_donation', 'name', $spec);
+
+  $spec = array(
+    'description' => 'Contact email address.',
+    'type' => 'varchar',
+    'length' => '255',
+  );
+  db_add_field( 'sp_mollie_donation', 'email', $spec);
+
+  $spec = array(
+    'description' => 'Contact phone number.',
+    'type' => 'varchar',
+    'length' => '255',
+  );
+  db_add_field( 'sp_mollie_donation', 'phone', $spec);
 }

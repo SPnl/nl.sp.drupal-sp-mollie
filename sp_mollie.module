@@ -37,7 +37,7 @@ function sp_mollie_menu() {
   );
 
   $items['admin/config/sp_mollie/landing-page'] = array(
-    'title' => 'Teksten landingspagina',
+    'title' => 'Mollie teksten landingspagina',
     'description' => 'Stel de feedback teksten voor de landingspagina in.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('sp_mollie_landing_page_settings_form'),
@@ -142,8 +142,6 @@ function sp_mollie_block_view($delta = '') {
 }
 
 function sp_mollie_payment_form($form, &$form_state) {
-  //dpm($form_state['values']);
-  //dpm($form_state['sp_mollie_form_page']);
   if (empty($form_state['sp_mollie_form_page'])) {
     // Donation
     $form['page_1_submit'] = array(
@@ -186,8 +184,44 @@ function sp_mollie_payment_form($form, &$form_state) {
     $form_state['sp_mollie_form_page'] = 3;
   }
   elseif ($form_state['sp_mollie_form_page'] === 3) {
+
     // Store form data.
     $form_state['sp_mollie_amount'] = $form_state['values']['amount'];
+
+    $form['name'] = array(
+      '#type' => 'textfield',
+      '#title' => 'Naam',
+      '#requred' => TRUE,
+    );
+    $form['email'] = array(
+      '#type' => 'textfield',
+      '#title' => 'E-mailadres',
+      '#requred' => TRUE,
+    );
+    $form['phone'] = array(
+      '#type' => 'textfield',
+      '#title' => 'Telefoonnummer',
+      '#requred' => TRUE,
+    );
+    $form['page_3_submit'] = array(
+      '#type' => 'button',
+      '#value' => 'Ga verder',
+      '#ajax' => array(
+        'callback' => 'sp_mollie_payment_form_callback',
+        'wrapper' => 'sp-mollie-payment-form--3',
+        'method' => 'replace',
+        'effect' => 'fade',
+      ),
+    );
+    // Go to fourth page.
+    $form_state['sp_mollie_form_page'] = 4;
+  }
+  elseif ($form_state['sp_mollie_form_page'] === 4) {
+    // Store form data.
+    $form_state['name'] = $form_state['values']['name'];
+    $form_state['email'] = $form_state['values']['email'];
+    $form_state['phone'] = $form_state['values']['phone'];
+
     // Initialize mollie.
     $mollie = sp_mollie_initialize();
     if ($mollie !== FALSE) {
@@ -204,7 +238,7 @@ function sp_mollie_payment_form($form, &$form_state) {
         '#options' => $options,
         '#required' => TRUE,
       );
-      $form['page_3_submit'] = array(
+      $form['page_4_submit'] = array(
         '#type' => 'submit',
         '#value' => 'Ga naar uw bank',
       );
@@ -243,6 +277,9 @@ function sp_mollie_payment_form_submit($form, &$form_state) {
     // To do: store payment id with order id, to retreive it on the landing page.
     $donation->payment_id = $payment->id;
     $donation->amount = $form_state['sp_mollie_amount'];
+    $donation->name = $form_state['name'];
+    $donation->email = $form_state['email'];
+    $donation->phone = $form_state['phone'];
     $result = entity_save('sp_mollie_donation', $donation);
     drupal_goto($payment->links->paymentUrl, array(), 307);
   }
