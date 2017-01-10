@@ -51,6 +51,7 @@ function sp_mollie_export_cron() {
         'email' => $donation->email,
         'telephone' => $donation->phone,
       );
+      // Export group.
       $groups = array(
         $group_id,
       );
@@ -68,6 +69,7 @@ function sp_mollie_export_cron() {
       }
       $donation->status = $status;
       $donation->save();
+
       sleep(1);
     }
   }

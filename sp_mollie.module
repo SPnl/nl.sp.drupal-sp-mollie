@@ -45,6 +45,17 @@ function sp_mollie_menu() {
     'access callback' => 'user_access',
     'access arguments' => array('administer access control'),
   );
+
+  $items['admin/config/sp_mollie/email'] = array(
+    'title' => 'Mollie e-mail',
+    'description' => 'Stel de Mollie e-mails in.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sp_mollie_email_settings_form'),
+    'file' => 'sp_mollie_settings.form.inc',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer access control'),
+  );
+
   return $items;
 }
 
@@ -64,6 +75,32 @@ function sp_mollie_payment_landing_page($donation_id) {
       // Create feedback.
       if ($payment->isPaid() == TRUE) {
         $content = variable_get('sp_mollie_feedback_is_paid',  '<p>Dank, uw donatie is ontvangen.</p>');
+        // Send email.
+        $body_raw = variable_get('sp_mollie_email_body',  array());
+        $body = check_markup($body_raw['value'], $body_raw['filter']);
+        $subject = variable_get('sp_mollie_email_subject', '');
+        $replacements = array(
+          '[name]' => $donation->name,
+          '[email]' => $donation->email,
+          '[phone]' => $donation->phone,
+          '[amount]' => $donation->amount,
+          '[payment_id]' => $donation->payment_id,
+          '[donation_id]' => $donation->did,
+        );
+        foreach ($replacements as $token => $value) {
+          $value_clean = check_plain($value);
+          if (!empty($value)) {
+            $body = str_replace($token, $value_clean, $body);
+            $subject = str_replace($token, $value_clean, $subject);
+          }
+        }
+        $site_mail = variable_get('site_mail', ini_get('sendmail_from'));
+        $from = variable_get('sp_mollie_email_from', $site_mail);
+        $params = array(
+          'subject' => $subject,
+          'body' => $body,
+        );
+        $message = drupal_mail('sp_mollie', 'donation_email', $donation->email, language_default(), $params, $from);
       }
       else if ($payment->isOpen() == FALSE) {
         $content = variable_get('sp_mollie_feedback_is_cancelled',  '<p>Helaas, de betaling van uw donatie is geannuleerd.</p>');
@@ -281,6 +318,7 @@ function sp_mollie_payment_form_submit($form, &$form_state) {
     $donation->email = $form_state['email'];
     $donation->phone = $form_state['phone'];
     $result = entity_save('sp_mollie_donation', $donation);
+
     drupal_goto($payment->links->paymentUrl, array(), 307);
   }
   else {
@@ -319,4 +357,17 @@ function sp_mollie_create_donation() {
     return $donation;
   }
   return FALSE;
+}
+
+function sp_mollie_mail($key, &$message, $params) {
+  switch ($key) {
+  case 'test_email':
+    $message['subject'] = $params['sp_mollie_email_subject']; 
+    $message['body'][] = check_markup($params['sp_mollie_email_body']['value'], $params['sp_mollie_email_body']['format']); 
+    break;
+  case 'donation_email':
+    $message['subject'] = $params['subject']; 
+    $message['body'][] = $params['body']; 
+    break;
+  }
 }

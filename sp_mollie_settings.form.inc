@@ -61,3 +61,70 @@ function sp_mollie_landing_page_settings_form($form, &$form_state) {
 
   return system_settings_form($form);
 }
+
+function sp_mollie_email_settings_form($form, &$form_state) {
+  $site_mail = variable_get('site_mail', ini_get('sendmail_from'));
+
+  $form['sp_mollie_email_subject'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Onderwerp',
+    '#default_value' => variable_get('sp_mollie_email_subject',  ''),
+  );
+
+  $form['sp_mollie_email_from'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Afzender',
+    '#default_value' => variable_get('sp_mollie_email_from', $site_mail),
+  );
+
+  $default = variable_get('sp_mollie_email_body',  array());
+  $form['sp_mollie_email_body'] = array(
+    '#type' => 'text_format',
+    '#title' => 'Inhoud',
+    '#description' => 'Het token [naam] wordt vervangen door de naam van de donateur.',
+    '#format' => isset($default['format']) ? $default['format'] : NULL,
+    '#default_value' => isset($default['value']) ? $default['value'] : '',
+  );
+
+  $form['sp_mollie_test_email'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Verstuur een test email.',
+  );
+
+  $form['sp_mollie_test_email']['sp_mollie_email_test'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Test e-mailadres',
+    '#prefix' => '<div id="sp_mollie_send_test_email">',
+    '#suffix' => '</div>',
+    '#default_value' => variable_get('sp_mollie_email_test', $site_mail),
+  );
+
+  $form['sp_mollie_test_email']['send_email_test'] = array(
+    '#type' => 'button',
+    '#value' => 'Verzend',
+    '#name' => 'send_test_email',
+    '#ajax' => array(
+      'wrapper' => 'sp_mollie_send_test_email',
+      'callback' => 'sp_mollie_send_test_email',
+    ),
+  );
+
+  return system_settings_form($form);
+}
+
+function sp_mollie_send_test_email($form, &$form_state) {
+  $values = $form_state['values'];
+  $message = drupal_mail('sp_mollie', 'test_email', $values['sp_mollie_email_test'], language_default(), $values, $values['sp_mollie_email_from']);
+  if (!empty($message['result'])) {
+    // Mail verzonden.
+    drupal_set_message('Er is een test e-mail verzonden.');
+  }
+  else {
+    // Mail faal.
+    drupal_set_message('Er is iets misgegaan met het verzenden van de e-mail.', 'error');
+  }
+
+  $form['sp_mollie_email_test']['sp_mollie_email_test']['#prefix'] = theme_status_messages();
+  return $form['sp_mollie_email_test']['sp_mollie_email_test'];
+}
+
