@@ -65,10 +65,14 @@ function sp_mollie_landing_page_settings_form($form, &$form_state) {
 function sp_mollie_email_settings_form($form, &$form_state) {
   $site_mail = variable_get('site_mail', ini_get('sendmail_from'));
 
+  $form['intro'] = array(
+  );
+
   $form['sp_mollie_email_subject'] = array(
     '#type' => 'textfield',
     '#title' => 'Onderwerp',
     '#default_value' => variable_get('sp_mollie_email_subject',  ''),
+    '#description' => 'De volgende variabelen zijn bruikbaar: [name], [email], [phone], [amount], [payment_id], [donation_id].',
   );
 
   $form['sp_mollie_email_from'] = array(
@@ -81,7 +85,7 @@ function sp_mollie_email_settings_form($form, &$form_state) {
   $form['sp_mollie_email_body'] = array(
     '#type' => 'text_format',
     '#title' => 'Inhoud',
-    '#description' => 'Het token [naam] wordt vervangen door de naam van de donateur.',
+    '#description' => 'De volgende variabelen zijn bruikbaar: [name], [email], [phone], [amount], [payment_id], [donation_id].',
     '#format' => isset($default['format']) ? $default['format'] : NULL,
     '#default_value' => isset($default['value']) ? $default['value'] : '',
   );
