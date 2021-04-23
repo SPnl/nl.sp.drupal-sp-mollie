@@ -60,63 +60,75 @@ function sp_mollie_menu() {
 }
 
 function sp_mollie_payment_landing_page($donation_id) {
-  // Get donation.
-  $donation = sp_mollie_get_donation($donation_id);
-  // Get donation payment id.
-  $payment_id = $donation->payment_id;
-  if ($payment_id !== FALSE) {
-    // Connect to mollie service.
-    $mollie = sp_mollie_initialize();
-    if ($mollie !== FALSE) {
-      $payment  = $mollie->payments->get($payment_id);
-      // Store donation status.
-      $donation->status = $payment->status;
-      entity_save('sp_mollie_donation', $donation);
-      // Create feedback.
-      if ($payment->isPaid() == TRUE) {
-        $content = variable_get('sp_mollie_feedback_is_paid',  '<p>Dank, uw donatie is ontvangen.</p>');
-        // Send email.
-        $body_raw = variable_get('sp_mollie_email_body',  array());
-        $body = check_markup($body_raw['value'], $body_raw['filter']);
-        $subject = variable_get('sp_mollie_email_subject', '');
-        $replacements = array(
-          '[name]' => $donation->name,
-          '[email]' => $donation->email,
-          '[phone]' => $donation->phone,
-          '[amount]' => $donation->amount,
-          '[payment_id]' => $donation->payment_id,
-          '[donation_id]' => $donation->did,
-        );
-        foreach ($replacements as $token => $value) {
-          $value_clean = check_plain($value);
-          if (!empty($value)) {
-            $body = str_replace($token, $value_clean, $body);
-            $subject = str_replace($token, $value_clean, $subject);
+  if (!empty($donation_id)) {
+    // Get donation.
+    $donation = sp_mollie_get_donation($donation_id);
+    if (!empty($donation)) {
+      // Get donation payment id.
+      $payment_id = $donation->payment_id;
+      if ($payment_id !== FALSE) {
+        // Connect to mollie service.
+        $mollie = sp_mollie_initialize();
+        if ($mollie !== FALSE) {
+          $payment  = $mollie->payments->get($payment_id);
+          // Store donation status.
+          $donation->status = $payment->status;
+          entity_save('sp_mollie_donation', $donation);
+          // Create feedback.
+          if ($payment->isPaid() == TRUE) {
+            $content = variable_get('sp_mollie_feedback_is_paid',  '<p>Dank, uw donatie is ontvangen.</p>');
+            // Send email.
+            if (webform_valid_email_address($donation->email)) {
+              $body_raw = variable_get('sp_mollie_email_body',  array());
+              $body = check_markup($body_raw['value'], $body_raw['format']);
+              $subject = variable_get('sp_mollie_email_subject', '');
+              $replacements = array(
+                '[name]' => $donation->name,
+                '[email]' => $donation->email,
+                '[phone]' => $donation->phone,
+                '[amount]' => $donation->amount,
+                '[payment_id]' => $donation->payment_id,
+                '[donation_id]' => $donation->did,
+              );
+              foreach ($replacements as $token => $value) {
+                $value_clean = check_plain($value);
+                if (!empty($value)) {
+                  $body = str_replace($token, $value_clean, $body);
+                  $subject = str_replace($token, $value_clean, $subject);
+                }
+              }
+              $site_mail = variable_get('site_mail', ini_get('sendmail_from'));
+              $from = variable_get('sp_mollie_email_from', $site_mail);
+              $params = array(
+                'subject' => $subject,
+                'body' => $body,
+              );
+              $message = drupal_mail('sp_mollie', 'donation_email', $donation->email, language_default(), $params, $from);
+            }
+          }
+          else if ($payment->isOpen() == FALSE) {
+            $content = variable_get('sp_mollie_feedback_is_cancelled',  '<p>Helaas, de betaling van uw donatie is geannuleerd.</p>');
+          }
+          else {
+            $content = variable_get('sp_mollie_feedback_is_open',  '<p>De betaling van uw donatie is op dit moment nog niet afgerond.</p>');
           }
         }
-        $site_mail = variable_get('site_mail', ini_get('sendmail_from'));
-        $from = variable_get('sp_mollie_email_from', $site_mail);
-        $params = array(
-          'subject' => $subject,
-          'body' => $body,
-        );
-        $message = drupal_mail('sp_mollie', 'donation_email', $donation->email, language_default(), $params, $from);
-      }
-      else if ($payment->isOpen() == FALSE) {
-        $content = variable_get('sp_mollie_feedback_is_cancelled',  '<p>Helaas, de betaling van uw donatie is geannuleerd.</p>');
+        else {
+          $content = variable_get('sp_mollie_feedback_error',  '<p>Helaas, er is iets misgegaan met het ophalen van uw donatiegegevens.</p>');
+        }
       }
       else {
-        $content = variable_get('sp_mollie_feedback_is_open',  '<p>De betaling van uw donatie is op dit moment nog niet afgerond.</p>');
+        $content = variable_get('sp_mollie_feedback_no_id',  '<p>Helaas, er is iets misgegaan met het ophalen van uw donatiegegevens.</p>');
       }
     }
     else {
-      $content = variable_get('sp_mollie_feedback_error',  '<p>Helaas, er is iets misgegaan met het ophalen van uw donatiegegevens.</p>');
+      $content = '<p>Er is een fout opgetreden.</p>';
     }
   }
   else {
-    $content = variable_get('sp_mollie_feedback_no_id',  '<p>Helaas, er is iets misgegaan met het ophalen van uw donatiegegevens.</p>');
+    $content = '<p>Er is een fout opgetreden.</p>';
   }
-  return $content;
+  return '<div class="content-wrap">' . $content . '</div>';
 }
 
 /**
@@ -179,85 +191,80 @@ function sp_mollie_block_view($delta = '') {
 }
 
 function sp_mollie_payment_form($form, &$form_state) {
-  if (empty($form_state['sp_mollie_form_page'])) {
+  $form['#prefix'] = '<div id="sp-mollie-form">';
+  $form['#suffix'] = '</div>';
+  if (empty($form_state['storage']['sp_mollie_form_page'])) {
     // Donation
     $form['page_1_submit'] = array(
       '#type' => 'button',
       '#value' => 'Doneer',
       '#ajax' => array(
         'callback' => 'sp_mollie_payment_form_callback',
-        'wrapper' => 'sp-mollie-payment-form',
+        'wrapper' => 'sp-mollie-form',
         'method' => 'replace',
         'effect' => 'fade',
       ),
     );
-    // Go to second page.
-    $form_state['sp_mollie_form_page'] = 2;
   }
-  elseif ($form_state['sp_mollie_form_page'] === 2) {
+  elseif ($form_state['storage']['sp_mollie_form_page'] === 2) {
     $amounts = array(
       '5.00' => '5,00 €',
       '10.00' => '10,00 €',
       '25.00' => '25,00 €',
-      '50.00' => '50,00 €',
+      'free_amount' => 'Anders',
     );
     $form['amount'] = array(
       '#type' => 'radios',
-      '#title' => 'Kies een bedrag',
+      '#title' => 'Bedrag',
       '#options' => $amounts,
       '#required' => TRUE,
+    );
+    $form['free_amount'] = array(
+      '#type' => 'textfield',
+      '#title' => 'Bedrag',
+      '#states' => array(
+        'visible' => array(
+          ':input[name="amount"]' => ['value' => 'free_amount'],
+        ),
+      ),
     );
     $form['page_2_submit'] = array(
       '#type' => 'button',
       '#value' => 'Ga verder',
       '#ajax' => array(
         'callback' => 'sp_mollie_payment_form_callback',
-        'wrapper' => 'sp-mollie-payment-form--2',
+        'wrapper' => 'sp-mollie-form',
         'method' => 'replace',
         'effect' => 'fade',
       ),
     );
-    // Go to third page.
-    $form_state['sp_mollie_form_page'] = 3;
   }
-  elseif ($form_state['sp_mollie_form_page'] === 3) {
-
-    // Store form data.
-    $form_state['sp_mollie_amount'] = $form_state['values']['amount'];
+  elseif ($form_state['storage']['sp_mollie_form_page'] === 3) {
 
     $form['name'] = array(
       '#type' => 'textfield',
       '#title' => 'Naam',
-      '#requred' => TRUE,
     );
     $form['email'] = array(
       '#type' => 'textfield',
       '#title' => 'E-mailadres',
-      '#requred' => TRUE,
     );
     $form['phone'] = array(
       '#type' => 'textfield',
       '#title' => 'Telefoonnummer',
-      '#requred' => TRUE,
     );
     $form['page_3_submit'] = array(
       '#type' => 'button',
       '#value' => 'Ga verder',
       '#ajax' => array(
         'callback' => 'sp_mollie_payment_form_callback',
-        'wrapper' => 'sp-mollie-payment-form--3',
+        'wrapper' => 'sp-mollie-form',
         'method' => 'replace',
         'effect' => 'fade',
       ),
     );
-    // Go to fourth page.
-    $form_state['sp_mollie_form_page'] = 4;
   }
-  elseif ($form_state['sp_mollie_form_page'] === 4) {
-    // Store form data.
-    $form_state['name'] = $form_state['values']['name'];
-    $form_state['email'] = $form_state['values']['email'];
-    $form_state['phone'] = $form_state['values']['phone'];
+  elseif ($form_state['storage']['sp_mollie_form_page'] === 4) {
 
     // Initialize mollie.
     $mollie = sp_mollie_initialize();
@@ -289,6 +296,72 @@ function sp_mollie_payment_form($form, &$form_state) {
   return $form;
 }
 
+function sp_mollie_payment_form_validate($form, &$form_state) {
+  if (empty($form_state['storage']['sp_mollie_form_page'])) {
+    $form_state['storage']['sp_mollie_form_page'] = 1;
+  }
+
+  switch ($form_state['storage']['sp_mollie_form_page']) {
+    case 1:
+      $form_state['storage']['sp_mollie_form_page'] = 2;
+      break;
+      
+    case 2:
+      $amount = $form_state['values']['amount'];
+      if ($amount === 'free_amount') {
+        $amount = $form_state['values']['free_amount'];
+      }
+      $regex = '#^[^0-9]*([0-9]+)[,.]?([0-9]{2}|-)?[^0-9]*$#';
+      if (preg_match($regex, $amount, $matches)) {
+        $euros = $matches[1];
+        if ($matches[2] == '-' || empty($matches[2])) {
+          $cents = '00';
+        }
+        else {
+          $cents = $matches[2];
+        }
+        $amount = $euros . '.' . $cents;
+        $form_state['storage']['sp_mollie_amount'] = $amount;
+        $form_state['storage']['sp_mollie_form_page'] = 3;
+      }
+      else {
+        form_set_error('free_amount', "Kies een bedrag in euro's");
+      }
+      break;
+    
+    case 3:
+      if (!empty($form_state['values']['name'])) {
+        $form_state['storage']['name'] = $form_state['values']['name'];
+      }
+      else {
+        $form_state['storage']['name'] = '';
+      }
+      if (!empty($form_state['values']['phone'])) {
+        $form_state['storage']['phone'] = $form_state['values']['phone'];
+      }
+      else {
+        $form_state['storage']['phone'] = '';
+      }
+      if (!empty($form_state['values']['email'])) {
+        if (valid_email_address($form_state['values']['email'])) {
+          $form_state['storage']['email'] = $form_state['values']['email'];
+        }
+        else {
+          form_set_error('email', 'Vul een geldig e-mailadres in');
+          return;
+        }
+      }
+      else {
+        $form_state['storage']['email'] = '';
+      }
+      $form_state['storage']['sp_mollie_form_page'] = 4;
+      break;
+
+    case 4:
+      break;
+  }
+}
+
 function sp_mollie_payment_form_submit($form, &$form_state) {
   global $base_url;
   // Initialize mollie.
@@ -297,8 +370,8 @@ function sp_mollie_payment_form_submit($form, &$form_state) {
     try {
       $donation = sp_mollie_create_donation();
       $payment = $mollie->payments->create(array(
-        "amount"      => $form_state['sp_mollie_amount'],
-        "description" => "Donatie",
+        "amount"      => $form_state['storage']['sp_mollie_amount'],
+        "description" => "Donatie www.sp.nl/doneren",
         "redirectUrl" => $base_url . '/donatie/' . $donation->did,
         "method" => Mollie_API_Object_Method::IDEAL,
         "issuer" => $form_state['values']['issuer'], // e.g. "ideal_INGBNL2A"
@@ -313,10 +386,10 @@ function sp_mollie_payment_form_submit($form, &$form_state) {
     }
     // To do: store payment id with order id, to retreive it on the landing page.
     $donation->payment_id = $payment->id;
-    $donation->amount = $form_state['sp_mollie_amount'];
-    $donation->name = $form_state['name'];
-    $donation->email = $form_state['email'];
-    $donation->phone = $form_state['phone'];
+    $donation->amount = 100 * $form_state['storage']['sp_mollie_amount'];
+    $donation->name = $form_state['storage']['name'];
+    $donation->email = $form_state['storage']['email'];
+    $donation->phone = $form_state['storage']['phone'];
     $result = entity_save('sp_mollie_donation', $donation);
 
     drupal_goto($payment->links->paymentUrl, array(), 307);
