@@ -20,8 +20,7 @@ function sp_mollie_menu() {
     'position' => 'right',
     'weight' => -20,
     'page callback' => 'system_admin_menu_block_page',
-    'access callback' => 'user_access',
-    'access arguments' => array('administer access control'),
+    'access callback' => 'sp_mollie_access_check',
     'file' => 'system.admin.inc',
     'file path' => drupal_get_path('module', 'system'),
   );
@@ -32,8 +31,7 @@ function sp_mollie_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('sp_mollie_api_settings_form'),
     'file' => 'sp_mollie_settings.form.inc',
-    'access callback' => 'user_access',
-    'access arguments' => array('administer access control'),
+    'access callback' => 'sp_mollie_access_check',
   );
 
   $items['admin/config/sp_mollie/landing-page'] = array(
@@ -42,8 +40,7 @@ function sp_mollie_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('sp_mollie_landing_page_settings_form'),
     'file' => 'sp_mollie_settings.form.inc',
-    'access callback' => 'user_access',
-    'access arguments' => array('administer access control'),
+    'access callback' => 'sp_mollie_access_check',
   );
 
   $items['admin/config/sp_mollie/email'] = array(
@@ -52,12 +49,31 @@ function sp_mollie_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('sp_mollie_email_settings_form'),
     'file' => 'sp_mollie_settings.form.inc',
-    'access callback' => 'user_access',
-    'access arguments' => array('administer access control'),
+    'access callback' => 'sp_mollie_access_check',
   );
 
   return $items;
 }
+
+/**
+ * @return bool Has SPRBS configuration access
+ */
+function sp_mollie_access_check() {
+  return (user_access('administer site configuration') || user_access('administer mollie'));
+}
+
+/**
+ * Definces permission to administer mollie.
+ */
+function sp_mollie_permission() {
+  return array(
+    'administer mollie' => array(
+      'title' => 'Beheer Mollie donatieknop',
+      'description' => 'Stel de api-key, de e-mail, en landingspagina teksten voor de Mollie donatieknop in.',
+    ),
+  );
+}
+
 
 function sp_mollie_payment_landing_page($donation_id) {
   if (!empty($donation_id)) {
