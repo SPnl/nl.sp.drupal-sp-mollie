@@ -260,10 +260,12 @@ function sp_mollie_payment_form($form, &$form_state) {
     $form['name'] = array(
       '#type' => 'textfield',
       '#title' => 'Naam',
+      '#required' => TRUE,
     );
     $form['email'] = array(
       '#type' => 'textfield',
       '#title' => 'E-mailadres',
+      '#required' => TRUE,
     );
     $form['phone'] = array(
       '#type' => 'textfield',
